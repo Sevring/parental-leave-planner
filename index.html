@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>출산휴가 & 육아휴직 자동 계산 플래너</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+    background: #f8fafc;
+    color: #1e293b;
+    min-height: 100vh;
+  }
+
+  /* ── 헤더 ── */
+  header {
+    background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+    color: #fff;
+    padding: 28px 24px 24px;
+    text-align: center;
+    box-shadow: 0 4px 16px rgba(30,58,138,.25);
+  }
+  header h1 { font-size: clamp(1.2rem, 4vw, 1.9rem); font-weight: 700; letter-spacing: -.5px; }
+  header p  { margin-top: 6px; font-size: .88rem; opacity: .85; }
+
+  main { max-width: 980px; margin: 0 auto; padding: 28px 16px 60px; }
+
+  /* ── 슬라이더 패널 ── */
+  .slider-panel {
+    background: #fff;
+    border-radius: 18px;
+    padding: 28px 30px;
+    box-shadow: 0 2px 14px rgba(30,58,138,.09);
+    margin-bottom: 26px;
+  }
+  .slider-panel-title {
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 22px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .slider-panel-title::before {
+    content:'';
+    display:inline-block;
+    width:4px; height:16px;
+    background:#3b82f6;
+    border-radius:2px;
+  }
+
+  .slider-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 28px;
+  }
+  @media (max-width: 720px) { .slider-row { grid-template-columns: 1fr; gap: 22px; } }
+
+  .slider-item { display: flex; flex-direction: column; gap: 0; }
+
+  .slider-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    gap: 8px;
+  }
+  .slider-label {
+    font-size: .8rem;
+    font-weight: 700;
+    color: #475569;
+    line-height: 1.3;
+  }
+  .slider-label small {
+    display: block;
+    font-size: .7rem;
+    font-weight: 500;
+    color: #94a3b8;
+    margin-top: 1px;
+  }
+  .slider-value-badge {
+    background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+    color: #fff;
+    border-radius: 8px;
+    padding: 5px 11px;
+    font-size: .82rem;
+    font-weight: 700;
+    white-space: nowrap;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(30,58,138,.25);
+  }
+
+  /* range 트랙 */
+  .slider-wrap {
+    position: relative;
+    padding: 6px 0 18px;
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 4px;
+    background: #e2e8f0;
+    outline: none;
+    cursor: pointer;
+    transition: background .2s;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+    border: 3px solid #fff;
+    box-shadow: 0 2px 8px rgba(30,58,138,.35);
+    cursor: pointer;
+    transition: transform .15s, box-shadow .15s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover {
+    transform: scale(1.18);
+    box-shadow: 0 4px 14px rgba(30,58,138,.45);
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+    border: 3px solid #fff;
+    box-shadow: 0 2px 8px rgba(30,58,138,.35);
+    cursor: pointer;
+  }
+  /* 색칠 채우기 효과를 JS로 처리 */
+
+  .slider-ticks {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 2px;
+  }
+  .slider-ticks span {
+    font-size: .66rem;
+    color: #cbd5e1;
+    font-weight: 500;
+  }
+  .slider-ticks span.active-tick { color: #3b82f6; font-weight: 700; }
+
+  /* 슬라이더별 컬러 */
+  .s-purple input[type=range]::-webkit-slider-thumb { background: linear-gradient(135deg,#6d28d9,#8b5cf6); }
+  .s-purple input[type=range]::-moz-range-thumb     { background: linear-gradient(135deg,#6d28d9,#8b5cf6); }
+  .s-purple .slider-value-badge { background: linear-gradient(135deg,#6d28d9,#8b5cf6); }
+
+  .s-teal input[type=range]::-webkit-slider-thumb { background: linear-gradient(135deg,#0284c7,#0ea5e9); }
+  .s-teal input[type=range]::-moz-range-thumb     { background: linear-gradient(135deg,#0284c7,#0ea5e9); }
+  .s-teal .slider-value-badge { background: linear-gradient(135deg,#0284c7,#0ea5e9); }
+
+  /* ── 요약 카드 ── */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+    margin-bottom: 26px;
+  }
+  .summary-card {
+    background: #fff;
+    border-radius: 14px;
+    padding: 18px 20px;
+    box-shadow: 0 2px 10px rgba(30,58,138,.07);
+    border-left: 5px solid #3b82f6;
+    position: relative;
+    overflow: hidden;
+    transition: transform .15s, box-shadow .15s;
+  }
+  .summary-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(30,58,138,.12); }
+  .summary-card::after {
+    content:''; position:absolute;
+    top:-20px; right:-20px;
+    width:80px; height:80px;
+    background:rgba(59,130,246,.05);
+    border-radius:50%;
+  }
+  .summary-card.green  { border-left-color:#10b981; }
+  .summary-card.purple { border-left-color:#8b5cf6; }
+  .summary-card.orange { border-left-color:#f59e0b; }
+  .summary-card.teal   { border-left-color:#0ea5e9; }
+  .summary-card .label { font-size:.75rem; color:#94a3b8; font-weight:700; letter-spacing:.3px; margin-bottom:8px; text-transform:uppercase; }
+  .summary-card .value { font-size:1.8rem; font-weight:800; color:#1e3a8a; line-height:1; }
+  .summary-card .unit  { font-size:.82rem; color:#64748b; margin-top:4px; font-weight:500; }
+
+  /* ── 섹션 타이틀 ── */
+  .section-title {
+    font-size:1.05rem; font-weight:700; color:#1e3a8a;
+    margin-bottom:14px; display:flex; align-items:center; gap:8px;
+  }
+  .section-title::before { content:''; display:inline-block; width:4px; height:20px; background:#3b82f6; border-radius:2px; }
+
+  /* ── 비주얼 타임라인 ── */
+  .timeline-section {
+    background:#fff; border-radius:16px; padding:24px 26px;
+    box-shadow:0 2px 12px rgba(30,58,138,.08); margin-bottom:26px;
+  }
+  .tl-track {
+    display:flex; height:44px; border-radius:10px;
+    overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,.08);
+    margin-top:16px;
+  }
+  .tl-seg {
+    display:flex; align-items:center; justify-content:center;
+    font-size:.71rem; font-weight:700; color:#fff;
+    overflow:hidden; white-space:nowrap;
+    transition: width .35s ease;
+    cursor:default; position:relative;
+  }
+  .tl-seg span { padding:0 7px; }
+  .tl-seg-1 { background:#8b5cf6; }
+  .tl-seg-2 { background:#3b82f6; }
+  .tl-seg-3 { background:#10b981; }
+
+  /* 눈금 타임라인 (월별) */
+  .tl-months {
+    position:relative; height:28px; margin-top:8px;
+    border-top: 1px dashed #e2e8f0;
+  }
+  .tl-month-tick {
+    position:absolute; top:4px;
+    font-size:.65rem; color:#94a3b8; font-weight:600;
+    transform:translateX(-50%);
+    white-space:nowrap;
+  }
+  .tl-month-tick::before {
+    content:''; display:block;
+    width:1px; height:6px; background:#cbd5e1;
+    margin:0 auto 2px;
+  }
+
+  .tl-labels { display:flex; margin-top:14px; gap:14px; flex-wrap:wrap; }
+  .tl-label  { display:flex; align-items:center; gap:5px; font-size:.78rem; color:#475569; font-weight:600; }
+  .tl-dot    { width:10px; height:10px; border-radius:3px; flex-shrink:0; }
+
+  /* ── 테이블 ── */
+  .table-wrapper {
+    background:#fff; border-radius:16px;
+    box-shadow:0 2px 12px rgba(30,58,138,.08);
+    overflow:hidden; margin-bottom:26px;
+  }
+  table { width:100%; border-collapse:collapse; font-size:.87rem; }
+  thead tr { background:linear-gradient(90deg,#1e3a8a,#2563eb); color:#fff; }
+  thead th { padding:13px 15px; text-align:left; font-weight:600; font-size:.78rem; letter-spacing:.4px; white-space:nowrap; }
+  tbody tr { border-bottom:1px solid #f1f5f9; transition:background .15s; }
+  tbody tr:last-child { border-bottom:none; }
+  tbody tr:hover { background:#f8fafc; }
+  tbody td { padding:14px 15px; vertical-align:top; line-height:1.5; }
+
+  .badge { display:inline-block; padding:4px 10px; border-radius:20px; font-size:.76rem; font-weight:700; white-space:nowrap; }
+  .badge-purple { background:#ede9fe; color:#6d28d9; }
+  .badge-blue   { background:#dbeafe; color:#1d4ed8; }
+  .badge-green  { background:#d1fae5; color:#065f46; }
+
+  .days-num { font-weight:700; color:#1e3a8a; font-size:1rem; }
+  .pay-info  { font-size:.79rem; color:#475569; line-height:1.6; }
+  .pay-info strong { color:#1d4ed8; }
+  .pay-tag   { display:inline-block; background:#fef9c3; color:#92400e; border-radius:4px; font-size:.71rem; font-weight:700; padding:1px 6px; margin-right:3px; }
+
+  /* ── 경고 배너 (육아휴직 시작일 충돌) ── */
+  .warn-banner {
+    background:#fef2f2; border:1.5px solid #fca5a5; border-radius:10px;
+    padding:10px 16px; font-size:.82rem; color:#b91c1c; font-weight:600;
+    margin-bottom:18px; display:none;
+  }
+
+  /* ── 상세 날짜 타임라인 ── */
+  .detail-timeline-section {
+    background: #fff;
+    border-radius: 16px;
+    padding: 26px 28px 30px;
+    box-shadow: 0 2px 12px rgba(30,58,138,.08);
+    margin-bottom: 26px;
+    overflow-x: auto;
+  }
+
+  .dtl-scroll {
+    min-width: 640px;
+    position: relative;
+  }
+
+  /* 연도/월 헤더 레일 */
+  .dtl-year-rail {
+    display: flex;
+    border-radius: 6px 6px 0 0;
+    overflow: hidden;
+    margin-bottom: 1px;
+  }
+  .dtl-year-cell {
+    background: #1e3a8a;
+    color: #fff;
+    font-size: .72rem;
+    font-weight: 700;
+    padding: 5px 0;
+    text-align: center;
+    letter-spacing: .5px;
+  }
+
+  .dtl-month-rail {
+    display: flex;
+    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 0;
+  }
+  .dtl-month-cell {
+    font-size: .68rem;
+    font-weight: 700;
+    color: #94a3b8;
+    padding: 4px 0 4px;
+    text-align: center;
+    border-right: 1px solid #f1f5f9;
+    flex-shrink: 0;
+    letter-spacing: .2px;
+  }
+  .dtl-month-cell:last-child { border-right: none; }
+  .dtl-month-cell.has-event { color: #1e3a8a; background: #eff6ff; }
+
+  /* 바 레인 */
+  .dtl-lanes {
+    position: relative;
+    padding: 72px 0 8px;
+  }
+
+  .dtl-lane {
+    position: relative;
+    height: 36px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+  }
+  .dtl-lane-label {
+    position: absolute;
+    left: 0;
+    width: 0; /* 레이블은 바 위에 표시 */
+  }
+
+  .dtl-bar {
+    position: absolute;
+    height: 30px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    overflow: visible;
+    z-index: 1;
+  }
+  .dtl-bar-inner {
+    width: 100%;
+    height: 100%;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    font-size: .72rem;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .dtl-bar-l1   .dtl-bar-inner { background: linear-gradient(90deg,#7c3aed,#8b5cf6); }
+  .dtl-bar-mat  .dtl-bar-inner { background: linear-gradient(90deg,#1d4ed8,#3b82f6); }
+  .dtl-bar-l2   .dtl-bar-inner { background: linear-gradient(90deg,#059669,#10b981); }
+
+  /* 마커 수직선 */
+  .dtl-vline {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 2px;
+    transform: translateX(-50%);
+    pointer-events: none;
+    z-index: 5;
+  }
+  .dtl-vline-inner {
+    width: 100%; height: 100%;
+    opacity: .55;
+  }
+  /* 마커 상단 도트 */
+  .dtl-vdot {
+    position: absolute;
+    top: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 1px 5px rgba(0,0,0,.22);
+  }
+  /* 하단 날짜 칩 */
+  .dtl-vchip {
+    position: absolute;
+    bottom: -3px;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    font-size: .6rem;
+    font-weight: 800;
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.18);
+  }
+  .dtl-vlabel {
+    position: absolute;
+    top: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    font-size: .58rem;
+    font-weight: 700;
+    color: inherit;
+    background: #fff;
+    border: 1.5px solid currentColor;
+    padding: 1px 5px;
+    border-radius: 4px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.1);
+  }
+
+  /* 날짜 눈금 */
+  .dtl-axis {
+    position: relative;
+    height: 22px;
+    border-top: 1px solid #e2e8f0;
+    margin-top: 4px;
+  }
+  .dtl-axis-tick {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .dtl-axis-tick-line {
+    width: 1px; height: 5px;
+    background: #cbd5e1;
+  }
+  .dtl-axis-tick-label {
+    font-size: .6rem;
+    color: #94a3b8;
+    font-weight: 600;
+    margin-top: 1px;
+    white-space: nowrap;
+  }
+
+  /* ── 저장/공유 바 ── */
+  .save-bar {
+    background: #fff;
+    border-radius: 14px;
+    padding: 16px 24px;
+    box-shadow: 0 2px 12px rgba(30,58,138,.08);
+    margin-bottom: 26px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: space-between;
+  }
+  .save-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: .82rem;
+    color: #64748b;
+    font-weight: 600;
+  }
+  .save-bar-left .saved-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 2px #d1fae5;
+    transition: background .3s;
+  }
+  .save-bar-left .saved-dot.dirty { background: #f59e0b; box-shadow: 0 0 0 2px #fef3c7; }
+  .save-bar-right { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border-radius: 8px;
+    font-size: .82rem; font-weight: 700; cursor: pointer;
+    border: none; transition: all .15s; white-space: nowrap;
+  }
+  .btn-primary { background: linear-gradient(135deg,#1e3a8a,#3b82f6); color: #fff; box-shadow: 0 2px 8px rgba(30,58,138,.25); }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(30,58,138,.35); }
+  .btn-secondary { background: #f1f5f9; color: #1e3a8a; border: 1.5px solid #e2e8f0; }
+  .btn-secondary:hover { background: #e2e8f0; }
+  .btn-danger { background: #fef2f2; color: #b91c1c; border: 1.5px solid #fca5a5; }
+  .btn-danger:hover { background: #fee2e2; }
+  /* 복사 완료 토스트 */
+  .toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: #1e293b; color: #fff;
+    padding: 10px 22px; border-radius: 24px;
+    font-size: .85rem; font-weight: 600;
+    box-shadow: 0 6px 24px rgba(0,0,0,.2);
+    transition: transform .3s cubic-bezier(.34,1.56,.64,1), opacity .3s;
+    opacity: 0; z-index: 1000; pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  /* ── 주의사항 ── */
+  .notice {
+    background:#fffbeb; border:1.5px solid #fde68a;
+    border-radius:12px; padding:16px 20px;
+    font-size:.82rem; color:#78350f; line-height:1.65;
+  }
+  .notice strong { color:#92400e; }
+
+  /* ── 반응형 ── */
+  @media (max-width:640px) {
+    thead th:nth-child(3), tbody td:nth-child(3) { display:none; }
+    .summary-card .value { font-size:1.5rem; }
+  }
+  @media (max-width:480px) {
+    thead th:nth-child(2), tbody td:nth-child(2) { display:none; }
+    .slider-panel { padding:20px 18px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🍼 출산휴가 &amp; 육아휴직 자동 계산 플래너</h1>
+  <p>슬라이더를 움직이면 전체 일정이 실시간으로 계산됩니다</p>
+</header>
+
+<main>
+
+  <!-- ── 슬라이더 패널 ── -->
+  <div class="slider-panel">
+    <div class="slider-panel-title">날짜 조건 슬라이더</div>
+    <div class="slider-row">
+
+      <!-- 슬라이더 1: 출산 예정일 -->
+      <div class="slider-item">
+        <div class="slider-header">
+          <div class="slider-label">
+            📅 출산 예정일
+            <small>범위: 2026-01 ~ 2027-06</small>
+          </div>
+          <div class="slider-value-badge" id="val-due">2026-10-03</div>
+        </div>
+        <div class="slider-wrap">
+          <input type="range" id="sl-due" min="0" max="1" step="1" value="0">
+          <div class="slider-ticks" id="ticks-due"></div>
+        </div>
+      </div>
+
+      <!-- 슬라이더 2: 1차 육아휴직 시작일 -->
+      <div class="slider-item s-purple">
+        <div class="slider-header">
+          <div class="slider-label">
+            🟣 1차 육아휴직 시작일
+            <small>출산예정일 60일 전 ~ 출산예정일 30일 전</small>
+          </div>
+          <div class="slider-value-badge" id="val-l1">-</div>
+        </div>
+        <div class="slider-wrap">
+          <input type="range" id="sl-l1" min="0" max="1" step="1" value="0">
+          <div class="slider-ticks" id="ticks-l1"></div>
+        </div>
+      </div>
+
+      <!-- 슬라이더 3: 출산 후 휴가 일수 -->
+      <div class="slider-item s-teal">
+        <div class="slider-header">
+          <div class="slider-label">
+            🔵 출산 후 휴가 일수
+            <small>법정 최소 45일 ~ 최대 89일</small>
+          </div>
+          <div class="slider-value-badge" id="val-post">76일</div>
+        </div>
+        <div class="slider-wrap">
+          <input type="range" id="sl-post" min="45" max="89" step="1" value="76">
+          <div class="slider-ticks" id="ticks-post"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 경고 배너 -->
+  <div class="warn-banner" id="warn-banner">
+    ⚠️ 1차 육아휴직 시작일이 출산전후휴가 시작일 이후입니다. 날짜를 조정해 주세요.
+  </div>
+
+  <!-- ── 요약 카드 ── -->
+  <div class="summary-grid">
+    <div class="summary-card purple">
+      <div class="label">1차 육아휴직 (임신 중)</div>
+      <div class="value" id="card-leave1">-</div>
+      <div class="unit">일간</div>
+    </div>
+    <div class="summary-card blue">
+      <div class="label">출산전후휴가</div>
+      <div class="value" id="card-mat">90</div>
+      <div class="unit">일간 (법정)</div>
+    </div>
+    <div class="summary-card green">
+      <div class="label">2차 육아휴직 (출산 후)</div>
+      <div class="value" id="card-leave2">-</div>
+      <div class="unit">일간</div>
+    </div>
+    <div class="summary-card teal">
+      <div class="label">총 육아휴직 합산</div>
+      <div class="value">365</div>
+      <div class="unit">일간 (법정 상한)</div>
+    </div>
+    <div class="summary-card orange">
+      <div class="label">전체 휴가·휴직 기간</div>
+      <div class="value" id="card-total">-</div>
+      <div class="unit">일간</div>
+    </div>
+  </div>
+
+  <!-- ── 비주얼 타임라인 ── -->
+  <div class="timeline-section">
+    <div class="section-title">비주얼 타임라인</div>
+    <div class="tl-track">
+      <div class="tl-seg tl-seg-1" id="tl1"><span id="tl1-txt"></span></div>
+      <div class="tl-seg tl-seg-2" id="tl2"><span id="tl2-txt"></span></div>
+      <div class="tl-seg tl-seg-3" id="tl3"><span id="tl3-txt"></span></div>
+    </div>
+    <div class="tl-months" id="tl-months"></div>
+    <div class="tl-labels">
+      <div class="tl-label"><div class="tl-dot" style="background:#8b5cf6"></div> 1차 육아휴직 (임신 중)</div>
+      <div class="tl-label"><div class="tl-dot" style="background:#3b82f6"></div> 출산전후휴가</div>
+      <div class="tl-label"><div class="tl-dot" style="background:#10b981"></div> 2차 육아휴직 (출산 후)</div>
+    </div>
+  </div>
+
+  <!-- ── 저장 / 공유 바 ── -->
+  <div class="save-bar">
+    <div class="save-bar-left">
+      <div class="saved-dot" id="saved-dot"></div>
+      <span id="saved-label">마지막 저장: 없음</span>
+    </div>
+    <div class="save-bar-right">
+      <button class="btn btn-secondary" onclick="copyShareURL()">🔗 설정 URL 복사</button>
+      <button class="btn btn-danger"    onclick="resetSettings()">↩ 초기화</button>
+    </div>
+  </div>
+
+  <!-- 토스트 -->
+  <div class="toast" id="toast"></div>
+
+  <!-- ── 상세 날짜 타임라인 ── -->
+  <div class="detail-timeline-section">
+    <div class="section-title">상세 날짜 타임라인</div>
+    <div class="dtl-scroll" id="dtl-scroll">
+      <div class="dtl-year-rail"  id="dtl-year-rail"></div>
+      <div class="dtl-month-rail" id="dtl-month-rail"></div>
+      <div class="dtl-lanes"      id="dtl-lanes"></div>
+      <div class="dtl-axis"       id="dtl-axis"></div>
+    </div>
+  </div>
+
+  <!-- ── 상세 테이블 ── -->
+  <div class="section-title">상세 일정 타임라인</div>
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>구분</th>
+          <th>시작일</th>
+          <th>종료일</th>
+          <th>사용 일수</th>
+          <th>급여 안내</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+  <!-- ── 주의사항 ── -->
+  <div class="notice">
+    <strong>⚠️ 주의사항 및 안내</strong><br>
+    • 본 계산기는 <strong>일반 근로자 기준(배우자 출산휴가 제외)</strong>으로 계산되었습니다.<br>
+    • <strong>출산 후 휴가 일수</strong> 슬라이더는 법정 최소 45일~최대 89일 사이에서 조정 가능합니다.<br>
+    • <strong>1차 육아휴직 시작일</strong> 슬라이더는 출산 예정일 기준 범위로 자동 조정됩니다.<br>
+    • 급여 상한액은 <strong>2024년 기준</strong>이며 매년 변경될 수 있습니다. 정확한 급여는 고용보험 공식 사이트에서 확인하세요.<br>
+    • 출산전후휴가 급여는 <strong>우선지원대상기업(중소기업)</strong>은 전액 고용보험에서, 대기업은 60일분만 고용보험에서 지원됩니다.
+  </div>
+
+</main>
+
+<script>
+// ── 날짜 유틸 ──────────────────────────────────────────
+function toDate(str) {
+  const [y,m,d] = str.split('-').map(Number);
+  return new Date(y, m-1, d);
+}
+function fmtDate(dt) {
+  return dt.getFullYear() + '-'
+    + String(dt.getMonth()+1).padStart(2,'0') + '-'
+    + String(dt.getDate()).padStart(2,'0');
+}
+function fmtDateKo(dt) {
+  return (dt.getMonth()+1) + '/' + dt.getDate();
+}
+function addDays(dt, n) { const d=new Date(dt); d.setDate(d.getDate()+n); return d; }
+function subDays(dt, n) { return addDays(dt,-n); }
+function diffDays(a, b) { return Math.round((b-a)/86400000)+1; }
+function daysBetween(a, b) { return Math.round((b-a)/86400000); }
+
+// ── 슬라이더 범위 설정 ────────────────────────────────
+
+// 출산 예정일: 2026-01-01 ~ 2027-06-30 (월 단위 눈금)
+const DUE_BASE = toDate('2026-01-01');
+const DUE_END  = toDate('2027-06-30');
+const DUE_RANGE = daysBetween(DUE_BASE, DUE_END);
+const DEFAULT_DUE_DATE = '2026-10-03';
+
+// 출산 후 휴가: 45 ~ 89일 (기본 76)
+const POST_DEFAULT = 76;
+
+// 총 육아휴직
+const TOTAL_PARENTAL = 365;
+const MAT_DAYS = 90;
+
+// ── 슬라이더 초기화 ───────────────────────────────────
+const slDue  = document.getElementById('sl-due');
+const slL1   = document.getElementById('sl-l1');
+const slPost = document.getElementById('sl-post');
+
+// 출산 예정일 슬라이더
+slDue.min = 0;
+slDue.max = DUE_RANGE;
+slDue.value = daysBetween(DUE_BASE, toDate(DEFAULT_DUE_DATE));
+
+// 출산 후 일수 슬라이더
+slPost.min = 45; slPost.max = 89; slPost.value = POST_DEFAULT;
+
+// 1차 휴직 시작일: getDueDate() 기준 재설정
+function getDueDate()  { return addDays(DUE_BASE, parseInt(slDue.value)); }
+function getPostDays() { return parseInt(slPost.value); }
+
+function resetL1Slider() {
+  const due = getDueDate();
+  // 범위: due - 240일 ~ due - 32일 (약 8개월 전 ~ 약 1개월 전)
+  const L1_RANGE = 240 - 32; // 208 단계
+  slL1.min = 0;
+  slL1.max = L1_RANGE;
+  // 기본값: 2026-08-01 or due - 63일 (약 2개월 전) 중 맞는 것
+  const defaultL1 = toDate('2026-08-01');
+  const anchorOffset = daysBetween(addDays(due, -240), defaultL1);
+  const clampedOffset = Math.max(0, Math.min(L1_RANGE, anchorOffset));
+  slL1.value = clampedOffset;
+}
+
+function getL1StartDate() {
+  const due = getDueDate();
+  return addDays(due, -240 + parseInt(slL1.value));
+}
+
+// ── 눈금(tick) 생성 ───────────────────────────────────
+function buildDueTicks() {
+  const el = document.getElementById('ticks-due');
+  el.innerHTML = '';
+  // 분기별 눈금 (매 3개월)
+  const labels = ['26.1','26.4','26.7','26.10','27.1','27.4','27.6'];
+  const dates  = ['2026-01-01','2026-04-01','2026-07-01','2026-10-01','2027-01-01','2027-04-01','2027-06-30'];
+  dates.forEach((ds,i) => {
+    const pct = daysBetween(DUE_BASE, toDate(ds)) / DUE_RANGE * 100;
+    const sp = document.createElement('span');
+    sp.textContent = labels[i];
+    sp.style.position = 'absolute';
+    sp.style.left = pct + '%';
+    sp.style.transform = 'translateX(-50%)';
+    sp.style.fontSize = '.63rem';
+    sp.style.color = '#cbd5e1';
+    sp.style.fontWeight = '600';
+    el.style.position = 'relative';
+    el.style.height = '14px';
+    el.appendChild(sp);
+  });
+}
+
+function buildL1Ticks() {
+  const el = document.getElementById('ticks-l1');
+  el.innerHTML = '';
+  const due = getDueDate();
+  const ticks = [
+    { label: '-8M', offset: 0 },
+    { label: '-6M', offset: 60 },
+    { label: '-4M', offset: 120 },
+    { label: '-2M', offset: 180 },
+    { label: '-1M', offset: 208 },
+  ];
+  ticks.forEach(t => {
+    const pct = t.offset / 208 * 100;
+    const sp = document.createElement('span');
+    sp.textContent = t.label;
+    sp.style.position = 'absolute';
+    sp.style.left = pct + '%';
+    sp.style.transform = 'translateX(-50%)';
+    sp.style.fontSize = '.63rem';
+    sp.style.color = '#cbd5e1';
+    sp.style.fontWeight = '600';
+    el.style.position = 'relative';
+    el.style.height = '14px';
+    el.appendChild(sp);
+  });
+}
+
+function buildPostTicks() {
+  const el = document.getElementById('ticks-post');
+  el.innerHTML = '';
+  const marks = [
+    {v:45,l:'45일'},{v:55,l:'55일'},{v:65,l:'65일'},{v:76,l:'76일'},{v:89,l:'89일'}
+  ];
+  marks.forEach(mk => {
+    const pct = (mk.v - 45) / (89 - 45) * 100;
+    const sp = document.createElement('span');
+    sp.textContent = mk.l;
+    sp.style.position = 'absolute';
+    sp.style.left = pct + '%';
+    sp.style.transform = 'translateX(-50%)';
+    sp.style.fontSize = '.63rem';
+    sp.style.color = '#cbd5e1';
+    sp.style.fontWeight = '600';
+    el.style.position = 'relative';
+    el.style.height = '14px';
+    el.appendChild(sp);
+  });
+}
+
+// ── 슬라이더 채우기 색 업데이트 ──────────────────────
+function updateTrack(input, color) {
+  const pct = (input.value - input.min) / (input.max - input.min) * 100;
+  input.style.background = `linear-gradient(to right, ${color} 0%, ${color} ${pct}%, #e2e8f0 ${pct}%, #e2e8f0 100%)`;
+}
+
+// ── 월별 눈금 타임라인 ───────────────────────────────
+function buildMonthTicks(startDt, totalDays) {
+  const el = document.getElementById('tl-months');
+  el.innerHTML = '';
+  let cur = new Date(startDt.getFullYear(), startDt.getMonth(), 1);
+  while (true) {
+    const offset = daysBetween(startDt, cur);
+    if (offset > totalDays) break;
+    if (offset >= 0) {
+      const pct = offset / totalDays * 100;
+      const tick = document.createElement('div');
+      tick.className = 'tl-month-tick';
+      tick.style.left = pct + '%';
+      tick.textContent = (cur.getMonth()+1) + '월';
+      el.appendChild(tick);
+    }
+    cur = new Date(cur.getFullYear(), cur.getMonth()+1, 1);
+    if (cur.getFullYear() > startDt.getFullYear() + 3) break;
+  }
+}
+
+// ── 핵심 계산 ─────────────────────────────────────────
+function calculate() {
+  const dueDate   = getDueDate();
+  const postDays  = getPostDays();
+  const leave1Start = getL1StartDate();
+
+  document.getElementById('val-due').textContent  = fmtDate(dueDate);
+  document.getElementById('val-l1').textContent   = fmtDate(leave1Start);
+  document.getElementById('val-post').textContent = postDays + '일';
+
+  updateTrack(slDue,  '#3b82f6');
+  updateTrack(slL1,   '#8b5cf6');
+  updateTrack(slPost, '#0ea5e9');
+
+  // 출산전후휴가
+  const matEnd   = addDays(dueDate, postDays - 1);
+  const matStart = subDays(matEnd, MAT_DAYS - 1);
+
+  // 1차 육아휴직
+  const leave1End  = subDays(matStart, 1);
+  const leave1Days = Math.max(0, diffDays(leave1Start, leave1End));
+
+  // 경고
+  const warn = document.getElementById('warn-banner');
+  if (leave1Start >= matStart) {
+    warn.style.display = 'block';
+  } else {
+    warn.style.display = 'none';
+  }
+
+  // 2차 육아휴직
+  const leave2Start = addDays(matEnd, 1);
+  const leave2Days  = TOTAL_PARENTAL - leave1Days;
+  const leave2End   = addDays(leave2Start, leave2Days - 1);
+
+  const totalDays = leave1Days + MAT_DAYS + leave2Days;
+
+  // 카드
+  document.getElementById('card-leave1').textContent = leave1Days;
+  document.getElementById('card-leave2').textContent = leave2Days;
+  document.getElementById('card-total').textContent  = totalDays;
+  document.getElementById('card-mat').textContent    = MAT_DAYS;
+
+  // 타임라인 바
+  const t1pct = (leave1Days / totalDays * 100).toFixed(1);
+  const t2pct = (MAT_DAYS   / totalDays * 100).toFixed(1);
+  const t3pct = (leave2Days / totalDays * 100).toFixed(1);
+  document.getElementById('tl1').style.width = t1pct + '%';
+  document.getElementById('tl2').style.width = t2pct + '%';
+  document.getElementById('tl3').style.width = t3pct + '%';
+  document.getElementById('tl1-txt').textContent = leave1Days > 20 ? `1차 ${leave1Days}일` : '';
+  document.getElementById('tl2-txt').textContent = `출산휴가 ${MAT_DAYS}일`;
+  document.getElementById('tl3-txt').textContent = `2차 ${leave2Days}일`;
+
+  // 월별 눈금
+  buildMonthTicks(leave1Start, totalDays);
+
+  // 테이블
+  const rows = [
+    {
+      badge: '<span class="badge badge-purple">1차 육아휴직<br>(임신 중)</span>',
+      start: fmtDate(leave1Start),
+      end:   fmtDate(leave1End),
+      days:  leave1Days,
+      pay:   `<span class="pay-tag">고용보험</span><strong>통상임금의 80%</strong><br>월 최대 <strong>250만 원</strong> (상한)`
+    },
+    {
+      badge: '<span class="badge badge-blue">출산전후휴가</span>',
+      start: fmtDate(matStart),
+      end:   fmtDate(matEnd),
+      days:  MAT_DAYS,
+      pay:   `<span class="pay-tag">고용보험</span><strong>통상임금 100%</strong><br>월 최대 <strong>210만 원</strong> (상한)<br>`
+           + `<span style="font-size:.74rem;color:#64748b">중소기업: 전액 고용보험 지원<br>대기업: 60일분만 고용보험 지원</span>`
+    },
+    {
+      badge: '<span class="badge badge-green">2차 육아휴직<br>(출산 후)</span>',
+      start: fmtDate(leave2Start),
+      end:   fmtDate(leave2End),
+      days:  leave2Days,
+      pay:   `<span class="pay-tag">고용보험</span><strong>통상임금의 80%</strong><br>`
+           + `초반 3개월: 월 최대 <strong>250만 원</strong><br>`
+           + `4~6개월: 월 최대 <strong>200만 원</strong><br>`
+           + `7개월~: 월 최대 <strong>160만 원</strong><br>`
+           + `<span style="color:#059669;font-weight:700">사후지급금 0% → 매월 전액 지급</span>`
+    }
+  ];
+
+  document.getElementById('tableBody').innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.badge}</td>
+      <td style="font-weight:600;color:#1e3a8a;white-space:nowrap">${r.start}</td>
+      <td style="font-weight:600;color:#1e3a8a;white-space:nowrap">${r.end}</td>
+      <td><span class="days-num">${r.days}</span> <span style="color:#94a3b8;font-size:.78rem">일</span></td>
+      <td class="pay-info">${r.pay}</td>
+    </tr>
+  `).join('');
+
+  // ── 상세 날짜 타임라인 빌드 ──────────────────────────
+  buildDetailTimeline({
+    leave1Start, leave1End, leave1Days,
+    matStart, matEnd,
+    leave2Start, leave2End, leave2Days,
+    dueDate, totalDays
+  });
+}
+
+// ── 상세 날짜 타임라인 ────────────────────────────────
+function buildDetailTimeline({ leave1Start, leave1End, leave1Days, matStart, matEnd, leave2Start, leave2End, leave2Days, dueDate, totalDays }) {
+  const timelineStart = leave1Start;
+  const timelineEnd   = leave2End;
+  const span = daysBetween(timelineStart, timelineEnd); // 총 달력 길이(일)
+
+  // 월 목록 수집
+  const months = [];
+  let cur = new Date(timelineStart.getFullYear(), timelineStart.getMonth(), 1);
+  while (cur <= timelineEnd) {
+    months.push(new Date(cur));
+    cur = new Date(cur.getFullYear(), cur.getMonth()+1, 1);
+  }
+
+  // 각 월의 너비 비율 계산 (일수 기준)
+  function monthWidth(mo) {
+    const s = new Date(mo.getFullYear(), mo.getMonth(), 1);
+    const e = new Date(mo.getFullYear(), mo.getMonth()+1, 0);
+    const visStart = s < timelineStart ? timelineStart : s;
+    const visEnd   = e > timelineEnd   ? timelineEnd   : e;
+    return Math.max(0, daysBetween(visStart, visEnd) + 1);
+  }
+  const totalMonthDays = months.reduce((a, m) => a + monthWidth(m), 0);
+
+  // pct 변환 (timelineStart 기준 offset → %)
+  function toPct(dt) {
+    return (daysBetween(timelineStart, dt) / span * 100).toFixed(3);
+  }
+  function daysToPct(d) { return (d / span * 100).toFixed(3); }
+
+  // ── 연도 헤더 ──
+  const yearRail = document.getElementById('dtl-year-rail');
+  yearRail.innerHTML = '';
+  const yearGroups = {};
+  months.forEach(m => {
+    const y = m.getFullYear();
+    yearGroups[y] = (yearGroups[y] || 0) + monthWidth(m);
+  });
+  Object.entries(yearGroups).forEach(([y, days]) => {
+    const cell = document.createElement('div');
+    cell.className = 'dtl-year-cell';
+    cell.textContent = y + '년';
+    cell.style.width = (days / totalMonthDays * 100) + '%';
+    yearRail.appendChild(cell);
+  });
+
+  // ── 월 헤더 ──
+  const monthRail = document.getElementById('dtl-month-rail');
+  monthRail.innerHTML = '';
+  months.forEach(m => {
+    const w = monthWidth(m);
+    const cell = document.createElement('div');
+    cell.className = 'dtl-month-cell';
+    cell.style.width = (w / totalMonthDays * 100) + '%';
+    cell.textContent = (m.getMonth()+1) + '월';
+    // 이벤트가 시작/종료되는 달 강조
+    const mo = m.getMonth(), yr = m.getFullYear();
+    const keyDates = [leave1Start, leave1End, matStart, matEnd, leave2Start, leave2End, dueDate];
+    if (keyDates.some(d => d.getMonth()===mo && d.getFullYear()===yr)) {
+      cell.classList.add('has-event');
+    }
+    monthRail.appendChild(cell);
+  });
+
+  // ── 바 레인 ──
+  const lanesEl = document.getElementById('dtl-lanes');
+  lanesEl.innerHTML = '';
+
+  const segments = [
+    {
+      key:'l1', cls:'dtl-bar-l1',
+      start: leave1Start, end: leave1End, days: leave1Days,
+      label: '1차 육아휴직 (임신 중)',
+      color: '#8b5cf6', row: 0
+    },
+    {
+      key:'mat', cls:'dtl-bar-mat',
+      start: matStart, end: matEnd, days: MAT_DAYS,
+      label: '출산전후휴가',
+      color: '#3b82f6', row: 1
+    },
+    {
+      key:'l2', cls:'dtl-bar-l2',
+      start: leave2Start, end: leave2End, days: leave2Days,
+      label: '2차 육아휴직 (출산 후)',
+      color: '#10b981', row: 2
+    }
+  ];
+
+  const LANE_H = 44; // px per row
+  lanesEl.style.height = (segments.length * LANE_H + 40) + 'px'; // 40px = 칩 공간
+
+  segments.forEach(seg => {
+    const leftPct  = toPct(seg.start);
+    const widthPct = daysToPct(daysBetween(seg.start, seg.end) + 1);
+
+    const lane = document.createElement('div');
+    lane.className = 'dtl-lane';
+    lane.style.position = 'absolute';
+    lane.style.top  = (seg.row * LANE_H) + 'px';
+    lane.style.left = '0'; lane.style.right = '0';
+    lane.style.height = LANE_H + 'px';
+
+    const bar = document.createElement('div');
+    bar.className = 'dtl-bar ' + seg.cls;
+    bar.style.left  = leftPct + '%';
+    bar.style.width = widthPct + '%';
+
+    const inner = document.createElement('div');
+    inner.className = 'dtl-bar-inner';
+    inner.textContent = seg.label + ' · ' + seg.days + '일';
+    bar.appendChild(inner);
+    lane.appendChild(bar);
+    lanesEl.appendChild(lane);
+  });
+
+  // ── 마커 수직선: 시작일·경계일·출산예정일·종료일 ──
+  const totalLaneH = segments.length * LANE_H;
+  // labelRow: 0=기본(-22px), 1=높이(-44px), 2=더높이(-66px) — 겹침 방지용 엇갈림
+  const markers = [
+    { dt: leave1Start, label: '1차 시작',    chip: fmtDate(leave1Start), color: '#7c3aed', dash: false, labelRow: 2 },
+    { dt: matStart,    label: '출산휴가 시작', chip: fmtDate(matStart),    color: '#1d4ed8', dash: false, labelRow: 0 },
+    { dt: dueDate,     label: '출산 예정일',   chip: fmtDate(dueDate),     color: '#dc2626', dash: true,  labelRow: 2 },
+    { dt: matEnd,      label: '출산휴가 종료', chip: fmtDate(matEnd),      color: '#1d4ed8', dash: false, labelRow: 0 },
+    { dt: leave2End,   label: '2차 종료',     chip: fmtDate(leave2End),   color: '#059669', dash: false, labelRow: 1 },
+  ];
+
+  markers.forEach(mk => {
+    const pct = toPct(mk.dt);
+    const vline = document.createElement('div');
+    vline.className = 'dtl-vline';
+    vline.style.left   = pct + '%';
+    vline.style.top    = '0';
+    vline.style.height = totalLaneH + 'px';
+
+    const inner = document.createElement('div');
+    inner.className = 'dtl-vline-inner';
+    inner.style.background = mk.color;
+    inner.style.backgroundImage = mk.dash
+      ? `repeating-linear-gradient(to bottom,${mk.color} 0,${mk.color} 5px,transparent 5px,transparent 9px)`
+      : 'none';
+    inner.style.backgroundColor = mk.dash ? 'transparent' : mk.color;
+
+    // 상단 도트
+    const dot = document.createElement('div');
+    dot.className = 'dtl-vdot';
+    dot.style.background = mk.color;
+
+    // 상단 라벨 (labelRow로 높이 엇갈림: 0=-22px, 1=-42px, 2=-62px)
+    const lbl = document.createElement('div');
+    lbl.className = 'dtl-vlabel';
+    lbl.style.color = mk.color;
+    lbl.style.borderColor = mk.color;
+    lbl.style.top = (-22 - mk.labelRow * 20) + 'px';
+    lbl.textContent = mk.label;
+
+    // 하단 칩
+    const chip = document.createElement('div');
+    chip.className = 'dtl-vchip';
+    chip.style.background = mk.color;
+    chip.textContent = mk.chip;
+    chip.style.top = (totalLaneH + 4) + 'px'; // 아래 축 영역에 표시
+    chip.style.bottom = 'auto';
+
+    vline.appendChild(inner);
+    vline.appendChild(dot);
+    vline.appendChild(lbl);
+    vline.appendChild(chip);
+    lanesEl.appendChild(vline);
+  });
+
+  // ── 하단 날짜 축 (매월 1일 눈금) ──
+  const axisEl = document.getElementById('dtl-axis');
+  axisEl.innerHTML = '';
+  months.forEach(m => {
+    const pct = toPct(new Date(m.getFullYear(), m.getMonth(), 1));
+    if (parseFloat(pct) < 0 || parseFloat(pct) > 100) return;
+    const tick = document.createElement('div');
+    tick.className = 'dtl-axis-tick';
+    tick.style.left = pct + '%';
+    tick.innerHTML = `<div class="dtl-axis-tick-line"></div><div class="dtl-axis-tick-label">${m.getFullYear()}.${m.getMonth()+1}.1</div>`;
+    axisEl.appendChild(tick);
+  });
+
+  // 15일 눈금도 추가
+  months.forEach(m => {
+    const d15 = new Date(m.getFullYear(), m.getMonth(), 15);
+    if (d15 < timelineStart || d15 > timelineEnd) return;
+    const pct = toPct(d15);
+    const tick = document.createElement('div');
+    tick.className = 'dtl-axis-tick';
+    tick.style.left = pct + '%';
+    tick.innerHTML = `<div class="dtl-axis-tick-line" style="background:#e2e8f0"></div><div class="dtl-axis-tick-label" style="color:#cbd5e1">.15</div>`;
+    axisEl.appendChild(tick);
+  });
+}
+
+// ── localStorage 저장/복원 ────────────────────────────
+const LS_KEY = 'parental-leave-planner-v1';
+
+function getSettings() {
+  return {
+    due:  slDue.value,
+    l1:   slL1.value,
+    post: slPost.value
+  };
+}
+
+function applySettings(s) {
+  if (s.due  !== undefined) slDue.value  = s.due;
+  if (s.post !== undefined) slPost.value = s.post;
+  resetL1Slider();
+  if (s.l1 !== undefined) slL1.value = s.l1;
+  buildL1Ticks();
+}
+
+function saveToStorage() {
+  const s = getSettings();
+  s.savedAt = new Date().toISOString();
+  localStorage.setItem(LS_KEY, JSON.stringify(s));
+  updateSaveLabel(s.savedAt);
+  markClean();
+}
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+
+function updateSaveLabel(isoStr) {
+  if (!isoStr) { document.getElementById('saved-label').textContent = '마지막 저장: 없음'; return; }
+  const d = new Date(isoStr);
+  const fmt = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  document.getElementById('saved-label').textContent = '자동 저장됨: ' + fmt;
+}
+
+function markClean() { document.getElementById('saved-dot').classList.remove('dirty'); }
+function markDirty() { document.getElementById('saved-dot').classList.add('dirty'); }
+
+// ── URL 공유 ─────────────────────────────────────────
+function copyShareURL() {
+  const s = getSettings();
+  const params = new URLSearchParams({ due: s.due, l1: s.l1, post: s.post });
+  const url = location.origin + location.pathname + '?' + params.toString();
+  navigator.clipboard.writeText(url).then(() => showToast('🔗 URL이 클립보드에 복사되었습니다!'));
+}
+
+function loadFromURL() {
+  const p = new URLSearchParams(location.search);
+  if (!p.has('due')) return false;
+  applySettings({ due: p.get('due'), l1: p.get('l1'), post: p.get('post') });
+  return true;
+}
+
+// ── 초기화 ───────────────────────────────────────────
+function resetSettings() {
+  if (!confirm('설정을 초기값으로 되돌릴까요?')) return;
+  localStorage.removeItem(LS_KEY);
+  slDue.value = daysBetween(DUE_BASE, toDate('2026-10-03'));
+  slPost.value = 76;
+  resetL1Slider();
+  buildL1Ticks();
+  calculate();
+  updateSaveLabel(null);
+  markClean();
+  showToast('↩ 초기값으로 되돌렸습니다');
+}
+
+// ── 토스트 ───────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+// ── 자동 저장 (500ms 디바운스) ───────────────────────
+let saveTimer;
+function onSliderChange() {
+  markDirty();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveToStorage, 500);
+}
+
+// ── 이벤트 연결 ──────────────────────────────────────
+slDue.addEventListener('input', () => {
+  resetL1Slider();
+  buildL1Ticks();
+  calculate();
+  onSliderChange();
+});
+slL1.addEventListener('input', () => { calculate(); onSliderChange(); });
+slPost.addEventListener('input', () => { calculate(); onSliderChange(); });
+
+// ── 페이지 로드 시 복원 우선순위: URL → localStorage → 기본값 ──
+buildDueTicks();
+
+(function init() {
+  const fromURL = loadFromURL();
+  if (!fromURL) {
+    const saved = loadFromStorage();
+    if (saved) {
+      applySettings(saved);
+      updateSaveLabel(saved.savedAt);
+    } else {
+      slDue.value = daysBetween(DUE_BASE, toDate('2026-10-03'));
+      slPost.value = 76;
+      resetL1Slider();
+      buildL1Ticks();
+    }
+  } else {
+    resetL1Slider();
+    buildL1Ticks();
+    showToast('🔗 공유된 URL 설정이 적용되었습니다');
+  }
+  buildDueTicks();
+  buildPostTicks();
+  calculate();
+  markClean();
+})();
+</script>
+</body>
+</html>
