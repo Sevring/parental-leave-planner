@@ -543,15 +543,27 @@
     position: relative;
     flex-shrink: 0;
   }
-  /* 숨긴 입력 — 화면 밖 배치, showPicker()는 작동 */
+  /* 투명 input이 배지를 완전히 덮음 — 클릭 시 달력 자동 오픈 */
   .badge-wrap input {
-    position: fixed;
-    top: -9999px;
-    left: -9999px;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     opacity: 0;
-    pointer-events: none;
-    width: 1px;
-    height: 1px;
+    cursor: pointer;
+    z-index: 2;
+    border: none;
+    background: transparent;
+    color: transparent;
+  }
+  /* 네이티브 달력 아이콘도 배지 전체 영역으로 확장 */
+  .badge-wrap input::-webkit-calendar-picker-indicator {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
   }
   /* 클릭 유도 힌트 */
   .slider-value-badge {
@@ -1326,17 +1338,6 @@ function onSliderChange() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(saveToStorage, 500);
 }
-
-// ── 배지 클릭 → 피커 열기 ────────────────────────────
-document.getElementById('val-due').addEventListener('click', () => {
-  try { pkDue.showPicker(); } catch(e) { pkDue.focus(); }
-});
-document.getElementById('val-l1').addEventListener('click', () => {
-  try { pkL1.showPicker(); } catch(e) { pkL1.focus(); }
-});
-document.getElementById('val-post').addEventListener('click', () => {
-  try { pkPost.showPicker(); } catch(e) { pkPost.focus(); }
-});
 
 // ── 피커 ↔ 슬라이더 동기화 ──────────────────────────
 const pkDue  = document.getElementById('pk-due');
