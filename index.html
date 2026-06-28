@@ -538,39 +538,35 @@
   }
   .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
-  /* ── 날짜 피커 ── */
-  .date-picker-wrap {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 10px;
-  }
-  .date-picker-wrap input[type="date"],
-  .date-picker-wrap input[type="number"] {
-    border: 1.5px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 6px 10px;
-    font-size: .82rem;
-    color: #1e3a8a;
-    font-weight: 600;
-    outline: none;
-    transition: border-color .2s, box-shadow .2s;
-    background: #f8fafc;
-    width: 100%;
-    cursor: pointer;
-  }
-  .date-picker-wrap input[type="date"]:focus,
-  .date-picker-wrap input[type="number"]:focus {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59,130,246,.12);
-    background: #fff;
-  }
-  .s-purple .date-picker-wrap input:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139,92,246,.12); }
-  .s-teal   .date-picker-wrap input:focus { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,.12); }
-  .picker-icon {
-    font-size: .95rem;
+  /* ── 배지 클릭 피커 ── */
+  .badge-wrap {
+    position: relative;
     flex-shrink: 0;
-    opacity: .6;
+  }
+  /* 숨긴 입력 — 화면 밖 배치, showPicker()는 작동 */
+  .badge-wrap input {
+    position: fixed;
+    top: -9999px;
+    left: -9999px;
+    opacity: 0;
+    pointer-events: none;
+    width: 1px;
+    height: 1px;
+  }
+  /* 클릭 유도 힌트 */
+  .slider-value-badge {
+    cursor: pointer;
+    user-select: none;
+    transition: filter .15s, transform .15s;
+  }
+  .slider-value-badge:hover {
+    filter: brightness(1.12);
+    transform: translateY(-1px);
+  }
+  .slider-value-badge::after {
+    content: ' ✎';
+    font-size: .65rem;
+    opacity: .7;
   }
 
   /* ── 주의사항 ── */
@@ -613,15 +609,14 @@
             📅 출산 예정일
             <small>범위: 2026-01 ~ 2027-06</small>
           </div>
-          <div class="slider-value-badge" id="val-due">2026-10-03</div>
+          <div class="badge-wrap">
+            <div class="slider-value-badge" id="val-due">2026-10-03</div>
+            <input type="date" id="pk-due" min="2026-01-01" max="2027-06-30" tabindex="-1">
+          </div>
         </div>
         <div class="slider-wrap">
           <input type="range" id="sl-due" min="0" max="1" step="1" value="0">
           <div class="slider-ticks" id="ticks-due"></div>
-        </div>
-        <div class="date-picker-wrap">
-          <span class="picker-icon">📅</span>
-          <input type="date" id="pk-due" min="2026-01-01" max="2027-06-30">
         </div>
       </div>
 
@@ -632,15 +627,14 @@
             🟣 1차 육아휴직 시작일
             <small>출산예정일 기준 자동 범위 조정</small>
           </div>
-          <div class="slider-value-badge" id="val-l1">-</div>
+          <div class="badge-wrap">
+            <div class="slider-value-badge" id="val-l1">-</div>
+            <input type="date" id="pk-l1" tabindex="-1">
+          </div>
         </div>
         <div class="slider-wrap">
           <input type="range" id="sl-l1" min="0" max="1" step="1" value="0">
           <div class="slider-ticks" id="ticks-l1"></div>
-        </div>
-        <div class="date-picker-wrap">
-          <span class="picker-icon">🟣</span>
-          <input type="date" id="pk-l1">
         </div>
       </div>
 
@@ -651,15 +645,14 @@
             🔵 출산 후 휴가 일수
             <small>법정 최소 45일 ~ 최대 89일</small>
           </div>
-          <div class="slider-value-badge" id="val-post">76일</div>
+          <div class="badge-wrap">
+            <div class="slider-value-badge" id="val-post">76일</div>
+            <input type="number" id="pk-post" min="45" max="89" tabindex="-1">
+          </div>
         </div>
         <div class="slider-wrap">
           <input type="range" id="sl-post" min="45" max="89" step="1" value="76">
           <div class="slider-ticks" id="ticks-post"></div>
-        </div>
-        <div class="date-picker-wrap">
-          <span class="picker-icon">🔵</span>
-          <input type="number" id="pk-post" min="45" max="89" placeholder="45~89">
         </div>
       </div>
 
@@ -1333,6 +1326,17 @@ function onSliderChange() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(saveToStorage, 500);
 }
+
+// ── 배지 클릭 → 피커 열기 ────────────────────────────
+document.getElementById('val-due').addEventListener('click', () => {
+  try { pkDue.showPicker(); } catch(e) { pkDue.focus(); }
+});
+document.getElementById('val-l1').addEventListener('click', () => {
+  try { pkL1.showPicker(); } catch(e) { pkL1.focus(); }
+});
+document.getElementById('val-post').addEventListener('click', () => {
+  try { pkPost.showPicker(); } catch(e) { pkPost.focus(); }
+});
 
 // ── 피커 ↔ 슬라이더 동기화 ──────────────────────────
 const pkDue  = document.getElementById('pk-due');
