@@ -538,6 +538,41 @@
   }
   .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
+  /* ── 날짜 피커 ── */
+  .date-picker-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .date-picker-wrap input[type="date"],
+  .date-picker-wrap input[type="number"] {
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: .82rem;
+    color: #1e3a8a;
+    font-weight: 600;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+    background: #f8fafc;
+    width: 100%;
+    cursor: pointer;
+  }
+  .date-picker-wrap input[type="date"]:focus,
+  .date-picker-wrap input[type="number"]:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59,130,246,.12);
+    background: #fff;
+  }
+  .s-purple .date-picker-wrap input:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139,92,246,.12); }
+  .s-teal   .date-picker-wrap input:focus { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,.12); }
+  .picker-icon {
+    font-size: .95rem;
+    flex-shrink: 0;
+    opacity: .6;
+  }
+
   /* ── 주의사항 ── */
   .notice {
     background:#fffbeb; border:1.5px solid #fde68a;
@@ -584,6 +619,10 @@
           <input type="range" id="sl-due" min="0" max="1" step="1" value="0">
           <div class="slider-ticks" id="ticks-due"></div>
         </div>
+        <div class="date-picker-wrap">
+          <span class="picker-icon">📅</span>
+          <input type="date" id="pk-due" min="2026-01-01" max="2027-06-30">
+        </div>
       </div>
 
       <!-- 슬라이더 2: 1차 육아휴직 시작일 -->
@@ -591,13 +630,17 @@
         <div class="slider-header">
           <div class="slider-label">
             🟣 1차 육아휴직 시작일
-            <small>출산예정일 60일 전 ~ 출산예정일 30일 전</small>
+            <small>출산예정일 기준 자동 범위 조정</small>
           </div>
           <div class="slider-value-badge" id="val-l1">-</div>
         </div>
         <div class="slider-wrap">
           <input type="range" id="sl-l1" min="0" max="1" step="1" value="0">
           <div class="slider-ticks" id="ticks-l1"></div>
+        </div>
+        <div class="date-picker-wrap">
+          <span class="picker-icon">🟣</span>
+          <input type="date" id="pk-l1">
         </div>
       </div>
 
@@ -613,6 +656,10 @@
         <div class="slider-wrap">
           <input type="range" id="sl-post" min="45" max="89" step="1" value="76">
           <div class="slider-ticks" id="ticks-post"></div>
+        </div>
+        <div class="date-picker-wrap">
+          <span class="picker-icon">🔵</span>
+          <input type="number" id="pk-post" min="45" max="89" placeholder="45~89">
         </div>
       </div>
 
@@ -1287,15 +1334,69 @@ function onSliderChange() {
   saveTimer = setTimeout(saveToStorage, 500);
 }
 
-// ── 이벤트 연결 ──────────────────────────────────────
-slDue.addEventListener('input', () => {
+// ── 피커 ↔ 슬라이더 동기화 ──────────────────────────
+const pkDue  = document.getElementById('pk-due');
+const pkL1   = document.getElementById('pk-l1');
+const pkPost = document.getElementById('pk-post');
+
+// 슬라이더 → 피커 (calculate 호출 후 배지 반영 시 같이 갱신)
+function syncPickerFromSliders() {
+  pkDue.value  = fmtDate(getDueDate());
+  pkL1.value   = fmtDate(getL1StartDate());
+  pkPost.value = getPostDays();
+
+  // 1차 피커 min/max를 슬라이더 범위에 맞게 갱신
+  const due = getDueDate();
+  pkL1.min = fmtDate(addDays(due, -240));
+  pkL1.max = fmtDate(addDays(due, -32));
+}
+
+// 피커 → 슬라이더
+pkDue.addEventListener('change', () => {
+  const d = toDate(pkDue.value);
+  const offset = daysBetween(DUE_BASE, d);
+  slDue.value = Math.max(0, Math.min(DUE_RANGE, offset));
   resetL1Slider();
   buildL1Ticks();
   calculate();
   onSliderChange();
 });
-slL1.addEventListener('input', () => { calculate(); onSliderChange(); });
-slPost.addEventListener('input', () => { calculate(); onSliderChange(); });
+
+pkL1.addEventListener('change', () => {
+  const due = getDueDate();
+  const d   = toDate(pkL1.value);
+  const offset = daysBetween(addDays(due, -240), d);
+  slL1.value = Math.max(0, Math.min(208, offset));
+  calculate();
+  onSliderChange();
+});
+
+pkPost.addEventListener('change', () => {
+  const v = Math.max(45, Math.min(89, parseInt(pkPost.value) || 76));
+  slPost.value = v;
+  pkPost.value = v;
+  calculate();
+  onSliderChange();
+});
+
+// ── 이벤트 연결 ──────────────────────────────────────
+slDue.addEventListener('input', () => {
+  resetL1Slider();
+  buildL1Ticks();
+  calculate();
+  syncPickerFromSliders();
+  onSliderChange();
+});
+slL1.addEventListener('input', () => {
+  calculate();
+  syncPickerFromSliders();
+  onSliderChange();
+});
+slPost.addEventListener('input', () => {
+  calculate();
+  syncPickerFromSliders();
+  onSliderChange();
+});
 
 // ── 페이지 로드 시 복원 우선순위: URL → localStorage → 기본값 ──
 buildDueTicks();
@@ -1321,6 +1422,7 @@ buildDueTicks();
   buildDueTicks();
   buildPostTicks();
   calculate();
+  syncPickerFromSliders();
   markClean();
 })();
 </script>
